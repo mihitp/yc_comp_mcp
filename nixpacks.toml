@@ -1,8 +1,0 @@
-[phases.install]
-cmds = ["npm ci"]
-
-[phases.build]
-cmds = ["npx turbo build --filter=@yc-mcp/api"]
-
-[phases.start]
-cmd = "node apps/api/dist/index.js"
