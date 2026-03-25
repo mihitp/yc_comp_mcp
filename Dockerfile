@@ -12,7 +12,7 @@ RUN npm ci
 
 COPY . .
 
-RUN npx turbo build --filter=@yc-mcp/api
+RUN npx turbo build
 
 EXPOSE 3001
 
