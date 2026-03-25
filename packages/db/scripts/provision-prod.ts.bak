@@ -1,0 +1,116 @@
+/**
+ * Production DynamoDB table provisioning script.
+ *
+ * Run this ONCE against real AWS to create the yc-companies and yc-metadata tables.
+ * It is idempotent — re-running is safe (ResourceInUseException is ignored).
+ *
+ * Usage:
+ *   AWS_REGION=us-east-2 \
+ *   AWS_ACCESS_KEY_ID=... \
+ *   AWS_SECRET_ACCESS_KEY=... \
+ *   DYNAMO_TABLE_NAME=yc-companies \
+ *   DYNAMO_METADATA_TABLE_NAME=yc-metadata \
+ *   npx tsx packages/db/scripts/provision-prod.ts
+ *
+ * NOTE: Do NOT set DYNAMO_ENDPOINT — that is for local dev only.
+ */
+
+import {
+  CreateTableCommand,
+  DescribeTableCommand,
+  DynamoDBClient,
+  ResourceInUseException,
+} from '@aws-sdk/client-dynamodb'
+
+// Guard: refuse to run if DYNAMO_ENDPOINT is set (would hit local DynamoDB)
+if (process.env['DYNAMO_ENDPOINT']) {
+  console.error(
+    'ERROR: DYNAMO_ENDPOINT is set. This script targets real AWS only.\n' +
+    'Unset DYNAMO_ENDPOINT before running provision-prod.',
+  )
+  process.exit(1)
+}
+
+// Guard: require real AWS credentials
+const missing = ['AWS_REGION', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'].filter(
+  (k) => !process.env[k],
+)
+if (missing.length > 0) {
+  console.error(`ERROR: Missing required env vars: ${missing.join(', ')}`)
+  process.exit(1)
+}
+
+const client = new DynamoDBClient({ region: process.env['AWS_REGION']! })
+
+const COMPANIES_TABLE = process.env['DYNAMO_TABLE_NAME'] ?? 'yc-companies'
+const METADATA_TABLE = process.env['DYNAMO_METADATA_TABLE_NAME'] ?? 'yc-metadata'
+
+async function createTable(cmd: CreateTableCommand): Promise<void> {
+  try {
+    await client.send(cmd)
+    console.log(`[provision] Created table: ${cmd.input.TableName}`)
+  } catch (err) {
+    if (err instanceof ResourceInUseException) {
+      console.log(`[provision] Table already exists (skipping): ${cmd.input.TableName}`)
+    } else {
+      throw err
+    }
+  }
+}
+
+async function waitForActive(tableName: string, maxWaitMs = 60_000): Promise<void> {
+  const pollMs = 3_000
+  const deadline = Date.now() + maxWaitMs
+  process.stdout.write(`[provision] Waiting for ${tableName} to become ACTIVE`)
+  while (Date.now() < deadline) {
+    const desc = await client.send(new DescribeTableCommand({ TableName: tableName }))
+    if (desc.Table?.TableStatus === 'ACTIVE') {
+      process.stdout.write(' done.\n')
+      return
+    }
+    process.stdout.write('.')
+    await new Promise((r) => setTimeout(r, pollMs))
+  }
+  throw new Error(`Timed out waiting for table ${tableName} to become ACTIVE`)
+}
+
+await createTable(new CreateTableCommand({
+  TableName: COMPANIES_TABLE,
+  KeySchema: [
+    { AttributeName: 'batch', KeyType: 'HASH' },
+    { AttributeName: 'slug', KeyType: 'RANGE' },
+  ],
+  AttributeDefinitions: [
+    { AttributeName: 'batch', AttributeType: 'S' },
+    { AttributeName: 'slug', AttributeType: 'S' },
+    { AttributeName: 'category', AttributeType: 'S' },
+  ],
+  GlobalSecondaryIndexes: [{
+    IndexName: 'category-index',
+    KeySchema: [
+      { AttributeName: 'category', KeyType: 'HASH' },
+      { AttributeName: 'batch', KeyType: 'RANGE' },
+    ],
+    Projection: { ProjectionType: 'ALL' },
+  }],
+  BillingMode: 'PAY_PER_REQUEST',
+}))
+
+await waitForActive(COMPANIES_TABLE)
+
+await createTable(new CreateTableCommand({
+  TableName: METADATA_TABLE,
+  KeySchema: [
+    { AttributeName: 'pk', KeyType: 'HASH' },
+    { AttributeName: 'sk', KeyType: 'RANGE' },
+  ],
+  AttributeDefinitions: [
+    { AttributeName: 'pk', AttributeType: 'S' },
+    { AttributeName: 'sk', AttributeType: 'S' },
+  ],
+  BillingMode: 'PAY_PER_REQUEST',
+}))
+
+await waitForActive(METADATA_TABLE)
+
+console.log('[provision] All production tables are ready.')
