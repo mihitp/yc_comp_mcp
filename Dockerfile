@@ -12,7 +12,7 @@ RUN npm ci
 
 COPY . .
 
-RUN npx turbo build
+RUN npx turbo build --filter=!@yc-mcp/web
 
 EXPOSE 3001
 
