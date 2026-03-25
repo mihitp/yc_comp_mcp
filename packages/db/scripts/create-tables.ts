@@ -1,7 +1,7 @@
 import { CreateTableCommand, DynamoDBClient, ResourceInUseException } from '@aws-sdk/client-dynamodb'
 
 const client = new DynamoDBClient({
-  region: process.env['AWS_REGION'] ?? 'us-east-1',
+  region: process.env['AWS_REGION'] ?? 'us-east-2',
   ...(process.env['DYNAMO_ENDPOINT'] && { endpoint: process.env['DYNAMO_ENDPOINT'] }),
 })
 
