@@ -1,0 +1,31 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^lint"]
+    },
+    "type-check": {
+      "dependsOn": ["^build"]
+    },
+    "clean": {
+      "cache": false
+    },
+    "scrape": {
+      "cache": false,
+      "env": ["AWS_REGION", "DYNAMO_TABLE_NAME", "SCRAPE_DELAY_MS"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "env": ["ADMIN_API_KEY", "DYNAMO_ENDPOINT", "AWS_REGION"]
+    }
+  }
+}

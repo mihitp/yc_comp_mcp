@@ -1,0 +1,31 @@
+{
+  "name": "@yc-mcp/scraper",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "type-check": "tsc --noEmit",
+    "scrape": "node --experimental-vm-modules dist/index.js"
+  },
+  "dependencies": {
+    "@yc-mcp/db": "*",
+    "@yc-mcp/shared": "*",
+    "playwright": "^1.47.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.2.4",
+    "typescript": "^5.5.0"
+  }
+}
