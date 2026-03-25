@@ -1,0 +1,13 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm ci && npx turbo build --filter=@yc-mcp/api"
+
+[deploy]
+startCommand = "node apps/api/dist/index.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+[deploy.envs]
+NODE_ENV = "production"
