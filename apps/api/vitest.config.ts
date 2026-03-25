@@ -17,8 +17,20 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/__tests__/**/*.test.ts'],
     coverage: {
+      provider: 'v8',
       include: ['src/**/*.ts'],
-      exclude: ['src/**/__tests__/**'],
+      exclude: [
+        'src/**/__tests__/**',
+        // Entry-point bootstrapping files — no testable logic, just wiring
+        'src/index.ts',
+        'src/handler.ts',
+      ],
+      thresholds: {
+        statements: 80,
+        branches: 80,
+        functions: 80,
+        lines: 80,
+      },
     },
   },
 })

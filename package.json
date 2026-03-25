@@ -15,7 +15,8 @@
     "type-check": "turbo type-check",
     "clean": "turbo clean && find . -name 'node_modules' -type d -prune -exec rm -rf '{}' + 2>/dev/null; true",
     "scrape": "turbo run scrape",
-    "test": "turbo test"
+    "test": "turbo test",
+    "provision-prod": "npm run provision-prod --workspace=@yc-mcp/db"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.0.0",
