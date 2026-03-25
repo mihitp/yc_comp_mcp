@@ -18,7 +18,8 @@
     "lint": "eslint src/",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "create-tables": "tsx scripts/create-tables.ts"
+    "create-tables": "tsx scripts/create-tables.ts",
+    "provision-prod": "tsx scripts/provision-prod.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.600.0",

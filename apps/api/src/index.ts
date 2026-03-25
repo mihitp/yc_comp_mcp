@@ -1,9 +1,12 @@
 /**
- * Standalone HTTP server for local development.
- * In production, use the Lambda handler (handler.ts) instead.
+ * Standalone HTTP server for local development and Railway production.
+ * Validates required environment variables at startup to fail fast.
  */
 import { serve } from "@hono/node-server"
 import { app } from "./app.js"
+import { validateEnv } from "./env.js"
+
+validateEnv()
 
 const PORT = Number(process.env["PORT"] ?? 3001)
 

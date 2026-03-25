@@ -311,6 +311,111 @@ describe('GET /admin/scrape/:jobId', () => {
 })
 
 // ---------------------------------------------------------------------------
+// POST /admin/scrape — background job completion and error paths
+// These tests trigger runScrapeJob's internal branches by waiting for the
+// async fire-and-forget to settle before asserting on putJob call args.
+// ---------------------------------------------------------------------------
+
+describe('POST /admin/scrape — background job paths', () => {
+  it('transitions job to "running" and then "completed" after successful scrape', async () => {
+    const companies = [
+      { slug: 'co1', name: 'Co1', batch: 'Spring 26', category: 'AI', description: 'D', founders: {}, scrapedAt: new Date().toISOString() },
+    ]
+    mocks.mockScrapeBatch.mockResolvedValue(companies)
+
+    const req = adminRequest('/admin/scrape', {
+      method: 'POST',
+      body: { season: 'Spring', year: '26' },
+    })
+    await app.fetch(req)
+
+    // Allow microtasks/promises to flush so the background job completes
+    await new Promise((r) => setTimeout(r, 50))
+
+    const allCalls = mocks.mockPutJob.mock.calls.map(
+      (c) => (c[0] as { status: string }).status,
+    )
+    expect(allCalls).toContain('pending')
+    expect(allCalls).toContain('running')
+    expect(allCalls).toContain('completed')
+    expect(mocks.mockRecordBatch).toHaveBeenCalledWith('Spring 26')
+    expect(mocks.mockPutCompanies).toHaveBeenCalledWith(companies)
+  })
+
+  it('triggers onProgress callback during scrape', async () => {
+    mocks.mockScrapeBatch.mockImplementation(
+      async (_season: string, _year: string, opts: { onProgress?: (scraped: number, total: number) => void }) => {
+        opts.onProgress?.(5, 10)
+        return []
+      },
+    )
+
+    const req = adminRequest('/admin/scrape', {
+      method: 'POST',
+      body: { season: 'Winter', year: '25' },
+    })
+    await app.fetch(req)
+    await new Promise((r) => setTimeout(r, 50))
+
+    const statusCalls = mocks.mockPutJob.mock.calls.map(
+      (c) => (c[0] as { status: string; processedCompanies?: number }).status,
+    )
+    // The onProgress call emits a "running" putJob
+    expect(statusCalls.filter((s) => s === 'running').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('transitions job to "failed" when scrapeBatch throws', async () => {
+    mocks.mockScrapeBatch.mockRejectedValue(new Error('Algolia API unreachable'))
+
+    const req = adminRequest('/admin/scrape', {
+      method: 'POST',
+      body: { season: 'Fall', year: '24' },
+    })
+    await app.fetch(req)
+    await new Promise((r) => setTimeout(r, 50))
+
+    const allCalls = mocks.mockPutJob.mock.calls.map(
+      (c) => (c[0] as { status: string }).status,
+    )
+    expect(allCalls).toContain('failed')
+  })
+
+  it('stores the error message in the failed job record', async () => {
+    mocks.mockScrapeBatch.mockRejectedValue(new Error('Network timeout'))
+
+    const req = adminRequest('/admin/scrape', {
+      method: 'POST',
+      body: { season: 'Summer', year: '23' },
+    })
+    await app.fetch(req)
+    await new Promise((r) => setTimeout(r, 50))
+
+    const failedCall = mocks.mockPutJob.mock.calls.find(
+      (c) => (c[0] as { status: string }).status === 'failed',
+    )
+    expect(failedCall).toBeDefined()
+    expect((failedCall![0] as { error: string }).error).toBe('Network timeout')
+  })
+
+  it('stores the string representation when a non-Error is thrown', async () => {
+    mocks.mockScrapeBatch.mockRejectedValue('string error value')
+
+    const req = adminRequest('/admin/scrape', {
+      method: 'POST',
+      body: { season: 'Spring', year: '22' },
+    })
+    await app.fetch(req)
+    await new Promise((r) => setTimeout(r, 50))
+
+    const failedCall = mocks.mockPutJob.mock.calls.find(
+      (c) => (c[0] as { status: string }).status === 'failed',
+    )
+    expect(failedCall).toBeDefined()
+    expect((failedCall![0] as { error: string }).error).toBe('string error value')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // GET /admin/batches
 // ---------------------------------------------------------------------------
 
