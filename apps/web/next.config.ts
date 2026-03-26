@@ -6,7 +6,6 @@ const nextConfig: NextConfig = {
     dirs: ["app"],
     ignoreDuringBuilds: false,
   },
-  transpilePackages: ["@yc-mcp/shared"],
   images: {
     remotePatterns: [
       {
