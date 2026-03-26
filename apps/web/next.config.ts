@@ -1,6 +1,11 @@
 import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
+  output: "standalone",
+  eslint: {
+    dirs: ["app"],
+    ignoreDuringBuilds: false,
+  },
   transpilePackages: ["@yc-mcp/shared"],
   images: {
     remotePatterns: [
