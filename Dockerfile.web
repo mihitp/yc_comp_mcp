@@ -1,0 +1,43 @@
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./
+COPY apps/web/package*.json ./apps/web/
+COPY packages/shared/package*.json ./packages/shared/
+
+RUN npm ci
+
+COPY . .
+
+# NEXT_PUBLIC_* vars must be present at build time so Next.js can inline them.
+# Railway injects all dashboard env vars into the Docker build environment,
+# so any NEXT_PUBLIC_* variables set in the Railway web service will be
+# available here automatically during `next build`.
+RUN npx turbo build --filter=@yc-mcp/web
+
+# ---------------------------------------------------------------------------
+# Runner — copy only the standalone output for a lean image
+# ---------------------------------------------------------------------------
+FROM node:22-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# Copy standalone server bundle
+COPY --from=builder /app/apps/web/.next/standalone ./
+
+# Copy static assets (standalone doesn't include these)
+COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
+
+# Copy public folder if present
+COPY --from=builder /app/apps/web/public ./apps/web/public
+
+EXPOSE 3000
+
+ENV HOSTNAME=0.0.0.0
+
+# Next.js standalone server respects the PORT env var set by Railway
+CMD ["node", "apps/web/server.js"]
